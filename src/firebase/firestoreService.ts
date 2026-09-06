@@ -135,6 +135,19 @@ export function subscribeToMembers(onData: (members: Member[]) => void): Unsubsc
   );
 }
 
+export async function getMembersFromFirestore(): Promise<Member[]> {
+  const colRef = collection(db, 'members');
+  try {
+    const snapshot = await getDocs(colRef);
+    const list: Member[] = [];
+    snapshot.forEach((d) => list.push(d.data() as Member));
+    return list;
+  } catch (error) {
+    console.warn('Firestore fetch members offline or error:', error);
+    return [];
+  }
+}
+
 export async function saveMemberDoc(member: Member): Promise<void> {
   const path = `members/${member.id}`;
   try {

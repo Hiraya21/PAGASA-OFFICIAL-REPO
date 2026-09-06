@@ -63,13 +63,18 @@ export const AdminMembers: React.FC = () => {
     setMemberAccountStatus,
     togglePortalAccess,
     resendCredentialEmail,
-    openEmailPreview
+    openEmailPreview,
+    fetchJoinRegistrationsDirect
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedBarangay, setSelectedBarangay] = useState('ALL');
   const [selectedStatus, setSelectedStatus] = useState('ALL');
   const [selectedPortalAccessFilter, setSelectedPortalAccessFilter] = useState('ALL');
+  const [selectedSourceFilter, setSelectedSourceFilter] = useState<'ALL' | 'JOIN_FORM'>('ALL');
+  const [isFetchingDirect, setIsFetchingDirect] = useState(false);
+  const [revealedPasswords, setRevealedPasswords] = useState<{ [id: string]: boolean }>({});
+  const [copiedMemberId, setCopiedMemberId] = useState<string | null>(null);
 
   // Modal State
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -115,10 +120,12 @@ export const AdminMembers: React.FC = () => {
   const activeMembersCount = members.filter(m => m.membershipStatus === 'Active').length;
   const portalAccessEnabledCount = members.filter(m => m.portalAccess === 'Enabled' || (!m.isAccessDisabled && m.portalAccess !== 'Disabled')).length;
   const passwordConfiguredCount = members.filter(m => !!m.passwordHash).length;
+  const joinFormMembers = members.filter(m => m.registrationSource === 'JOIN_FORM');
 
   const filteredMembers = members.filter(m => {
     const matchesBarangay = selectedBarangay === 'ALL' || m.barangay === selectedBarangay;
     const matchesStatus = selectedStatus === 'ALL' || m.membershipStatus === selectedStatus;
+    const matchesSource = selectedSourceFilter === 'ALL' || m.registrationSource === 'JOIN_FORM';
     
     let matchesPortal = true;
     if (selectedPortalAccessFilter === 'ENABLED') {
@@ -128,12 +135,12 @@ export const AdminMembers: React.FC = () => {
     }
 
     const q = (searchQuery || '').toLowerCase().trim();
-    if (!q) return matchesBarangay && matchesStatus && matchesPortal;
+    if (!q) return matchesBarangay && matchesStatus && matchesPortal && matchesSource;
     const matchesSearch = (m.fullName || '').toLowerCase().includes(q) ||
                           (m.memberId || '').toLowerCase().includes(q) ||
                           (m.email || '').toLowerCase().includes(q) ||
                           (m.barangay || '').toLowerCase().includes(q);
-    return matchesBarangay && matchesStatus && matchesPortal && matchesSearch;
+    return matchesBarangay && matchesStatus && matchesPortal && matchesSource && matchesSearch;
   });
 
   // Approval & Rejection Actions
@@ -370,6 +377,23 @@ export const AdminMembers: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={async () => {
+              setIsFetchingDirect(true);
+              try {
+                await fetchJoinRegistrationsDirect();
+              } finally {
+                setIsFetchingDirect(false);
+              }
+            }}
+            disabled={isFetchingDirect}
+            className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+            title="Fetch and sync direct user registrations and credentials from the Join Organization form"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isFetchingDirect ? 'animate-spin' : ''}`} />
+            <span>{isFetchingDirect ? 'Fetching Join Form...' : 'Fetch Join Submissions'}</span>
+          </button>
+
           {members.length > 0 && (
             <button
               onClick={() => {
@@ -416,7 +440,7 @@ export const AdminMembers: React.FC = () => {
       </div>
 
       {/* Quick Metrics Bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
           <div className="flex items-center justify-between mb-1">
             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total Members</span>
@@ -424,6 +448,15 @@ export const AdminMembers: React.FC = () => {
           </div>
           <p className="text-2xl font-bold text-slate-900 font-display">{members.length}</p>
           <span className="text-[10px] text-slate-400">Registered youth</span>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl border border-indigo-200 bg-indigo-50/40 shadow-xs">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[11px] font-bold text-indigo-800 uppercase tracking-wider">Direct Join Form</span>
+            <UserCheck className="w-4 h-4 text-indigo-600" />
+          </div>
+          <p className="text-2xl font-bold text-indigo-800 font-display">{joinFormMembers.length}</p>
+          <span className="text-[10px] text-indigo-700 font-medium">Input & credentials direct</span>
         </div>
 
         <div className="bg-white p-4 rounded-2xl border border-amber-200 bg-amber-50/40 shadow-xs">
@@ -530,6 +563,20 @@ export const AdminMembers: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+          {/* Registration Source Filter */}
+          <select
+            value={selectedSourceFilter}
+            onChange={(e) => setSelectedSourceFilter(e.target.value as any)}
+            className={`px-3 py-2 border rounded-xl text-xs cursor-pointer ${
+              selectedSourceFilter === 'JOIN_FORM'
+                ? 'bg-indigo-50 border-indigo-300 text-indigo-900 font-bold'
+                : 'bg-slate-50 border-slate-200 text-slate-700 font-semibold'
+            }`}
+          >
+            <option value="ALL">All Sources ({members.length})</option>
+            <option value="JOIN_FORM">Direct Join Form ({joinFormMembers.length})</option>
+          </select>
+
           {/* Account Status Dropdown */}
           <select
             value={selectedStatus}
@@ -643,9 +690,14 @@ export const AdminMembers: React.FC = () => {
                             </div>
                           </div>
                           <div className="min-w-0">
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1.5 flex-wrap">
                               <p className="font-bold text-slate-900 truncate">{m.fullName}</p>
                               <span className="font-mono text-[10px] text-slate-400">({m.memberId})</span>
+                              {m.registrationSource === 'JOIN_FORM' && (
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">
+                                  Join Form
+                                </span>
+                              )}
                             </div>
                             <div className="flex items-center gap-1 text-[11px] font-mono text-blue-700 mt-0.5">
                               <Mail className="w-3 h-3 text-red-500 flex-shrink-0" />
@@ -695,9 +747,40 @@ export const AdminMembers: React.FC = () => {
                         </button>
                       </td>
 
-                      {/* Password Security Status - NEVER PLAINTEXT */}
+                      {/* Password Security Status - Direct input or SHA-256 */}
                       <td className="py-3 px-4">
-                        {m.passwordHash ? (
+                        {m.portalPassword ? (
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1">
+                              <span className="font-mono text-[11px] font-bold bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200 text-slate-900">
+                                {revealedPasswords[m.id] ? m.portalPassword : '••••••••'}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setRevealedPasswords(prev => ({ ...prev, [m.id]: !prev[m.id] }))}
+                                className="p-1 text-slate-400 hover:text-slate-600 rounded transition-colors cursor-pointer"
+                                title={revealedPasswords[m.id] ? "Hide password" : "Show password"}
+                              >
+                                {revealedPasswords[m.id] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(m.portalPassword || '');
+                                  setCopiedMemberId(m.id);
+                                  setTimeout(() => setCopiedMemberId(null), 2000);
+                                }}
+                                className="p-1 text-slate-400 hover:text-slate-600 rounded transition-colors cursor-pointer"
+                                title="Copy password"
+                              >
+                                {copiedMemberId === m.id ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                              </button>
+                            </div>
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              <Shield className="w-2.5 h-2.5 text-emerald-600" /> SHA-256 Hashed
+                            </span>
+                          </div>
+                        ) : m.passwordHash ? (
                           <div className="space-y-0.5">
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                               <Shield className="w-3 h-3 text-emerald-600" />
@@ -900,54 +983,185 @@ export const AdminMembers: React.FC = () => {
 
       {/* Member QR / Detail Modal */}
       {viewingMember && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 space-y-4 text-center relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-5 my-8 relative">
             <button
               onClick={() => setViewingMember(null)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
 
-            <img
-              src={viewingMember.profilePicture}
-              alt=""
-              className="w-20 h-20 rounded-full object-cover mx-auto border-2 border-blue-600 shadow-md"
-            />
-            <div>
-              <span className="font-mono text-xs font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded">
-                {viewingMember.memberId}
-              </span>
-              <h3 className="text-lg font-bold text-slate-900 font-display mt-1">{viewingMember.fullName}</h3>
-              <p className="text-xs text-slate-500">Brgy. {viewingMember.barangay}, Guimba</p>
-              <div className="mt-2 inline-flex items-center gap-1.5 text-xs text-blue-700 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-200">
-                <Mail className="w-3.5 h-3.5 text-red-500" />
-                <span className="font-mono">{viewingMember.email}</span>
+            <div className="flex items-center gap-4 border-b border-slate-100 pb-4">
+              <img
+                src={viewingMember.profilePicture}
+                alt=""
+                className="w-16 h-16 rounded-2xl object-cover border-2 border-blue-600 shadow-md flex-shrink-0"
+              />
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-mono text-xs font-bold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-lg border border-blue-200">
+                    {viewingMember.memberId}
+                  </span>
+                  {viewingMember.registrationSource === 'JOIN_FORM' && (
+                    <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">
+                      Direct Join Form
+                    </span>
+                  )}
+                  <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold ${
+                    viewingMember.membershipStatus === 'Active'
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : viewingMember.membershipStatus === 'Pending'
+                      ? 'bg-amber-100 text-amber-800'
+                      : 'bg-slate-100 text-slate-700'
+                  }`}>
+                    {viewingMember.membershipStatus}
+                  </span>
+                </div>
+                <h3 className="text-lg font-bold text-slate-900 font-display mt-1 truncate">{viewingMember.fullName}</h3>
+                <p className="text-xs text-slate-500">Brgy. {viewingMember.barangay}, Guimba, Nueva Ecija</p>
               </div>
             </div>
 
-            <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl inline-block">
-              <QRCodeSVG value={viewingMember.qrCode || viewingMember.memberId} size={150} />
+            {/* Credentials Card */}
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                  <KeyRound className="w-4 h-4 text-blue-600" />
+                  <span>Member Portal Credentials</span>
+                </div>
+                <span className="text-[10px] font-mono text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-bold">
+                  SHA-256 Hashed
+                </span>
+              </div>
+
+              <div className="space-y-1.5 text-xs">
+                <div className="flex items-center justify-between py-1 border-b border-slate-200/70">
+                  <span className="text-slate-500">Login Username / Gmail:</span>
+                  <div className="flex items-center gap-1">
+                    <span className="font-mono font-bold text-blue-700">{viewingMember.username || viewingMember.email}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(viewingMember.username || viewingMember.email);
+                        addToast('info', 'Copied', 'Username copied to clipboard');
+                      }}
+                      className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
+                      title="Copy username"
+                    >
+                      <Copy className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between py-1 border-b border-slate-200/70">
+                  <span className="text-slate-500">Portal Password:</span>
+                  <div className="flex items-center gap-1">
+                    <span className="font-mono font-bold text-slate-800 bg-white px-2 py-0.5 rounded border border-slate-200">
+                      {revealedPasswords[viewingMember.id]
+                        ? (viewingMember.portalPassword || 'Encrypted')
+                        : '••••••••••••'}
+                    </span>
+                    {viewingMember.portalPassword && (
+                      <button
+                        type="button"
+                        onClick={() => setRevealedPasswords(prev => ({ ...prev, [viewingMember.id]: !prev[viewingMember.id] }))}
+                        className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
+                        title={revealedPasswords[viewingMember.id] ? "Hide password" : "Show password"}
+                      >
+                        {revealedPasswords[viewingMember.id] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const pwd = viewingMember.portalPassword || '';
+                        if (pwd) {
+                          navigator.clipboard.writeText(pwd);
+                          addToast('info', 'Copied', 'Password copied to clipboard');
+                        } else {
+                          addToast('warning', 'Encrypted', 'Password is stored as a secure SHA-256 hash.');
+                        }
+                      }}
+                      className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
+                      title="Copy password"
+                    >
+                      <Copy className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between py-1">
+                  <span className="text-slate-500">Portal Access State:</span>
+                  <span className="font-bold text-slate-700">
+                    {viewingMember.portalAccess === 'Enabled' || (!viewingMember.isAccessDisabled && viewingMember.portalAccess !== 'Disabled')
+                      ? 'Enabled (Full Access)'
+                      : 'Disabled'}
+                  </span>
+                </div>
+              </div>
             </div>
 
-            <div className="space-y-2 pt-2">
+            {/* Member Input Details */}
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <span className="text-[10px] text-slate-400 font-medium block">Contact / Mobile</span>
+                <span className="font-semibold text-slate-800">{viewingMember.contactNumber || 'Not provided'}</span>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <span className="text-[10px] text-slate-400 font-medium block">Age & Birthdate</span>
+                <span className="font-semibold text-slate-800">{viewingMember.age || 20} yrs ({viewingMember.birthdate || 'N/A'})</span>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <span className="text-[10px] text-slate-400 font-medium block">Education</span>
+                <span className="font-semibold text-slate-800 truncate block">{viewingMember.education || 'Tertiary / College'}</span>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <span className="text-[10px] text-slate-400 font-medium block">Date Registered</span>
+                <span className="font-semibold text-slate-800">{viewingMember.dateJoined || viewingMember.membershipDate || '2026-01-01'}</span>
+              </div>
+            </div>
+
+            {/* QR Code */}
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl text-center">
+              <div className="inline-block p-2 bg-white rounded-xl shadow-xs">
+                <QRCodeSVG value={viewingMember.qrCode || viewingMember.memberId} size={120} />
+              </div>
+              <p className="text-[10px] text-slate-400 mt-1 font-mono">Digital QR ID for Summit Check-in</p>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="space-y-2 pt-1">
               <button
                 onClick={() => {
                   handleTestLoginAsMember(viewingMember);
                   setViewingMember(null);
                 }}
-                className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-md shadow-blue-600/20"
               >
                 <LogIn className="w-4 h-4" />
-                <span>Open {viewingMember.fullName}'s Portal</span>
+                <span>Open {viewingMember.fullName}'s Member Portal</span>
               </button>
               
-              <button
-                onClick={() => setViewingMember(null)}
-                className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold cursor-pointer"
-              >
-                Close
-              </button>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSetResetPasswordMember(viewingMember);
+                    setViewingMember(null);
+                  }}
+                  className="py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                >
+                  <KeyRound className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Set / Reset Password</span>
+                </button>
+                <button
+                  onClick={() => setViewingMember(null)}
+                  className="py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>

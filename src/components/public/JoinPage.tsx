@@ -20,10 +20,18 @@ import {
   AlertCircle,
   Calendar,
   MapPin,
-  Hash
+  Hash,
+  Eye,
+  EyeOff,
+  Lock,
+  RefreshCw,
+  Copy,
+  CheckCheck,
+  UserCheck
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { calculateAge } from '../../utils/dateUtils';
+import { generateTemporaryPassword } from '../../utils/security';
 import { RegistrationSuccessModal } from '../common/RegistrationSuccessModal';
 
 export const JoinPage: React.FC = () => {
@@ -43,6 +51,9 @@ export const JoinPage: React.FC = () => {
   const [birthday, setBirthday] = useState('2005-06-15');
   const [barangay, setBarangay] = useState(GUIMBA_BARANGAYS[0]);
   const [contactNumber, setContactNumber] = useState('');
+  const [portalPassword, setPortalPassword] = useState(() => generateTemporaryPassword());
+  const [showPortalPassword, setShowPortalPassword] = useState(false);
+  const [copiedPassword, setCopiedPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -60,6 +71,7 @@ export const JoinPage: React.FC = () => {
     isExisting?: boolean;
     username?: string;
     membershipStatus?: string;
+    password?: string;
   } | null>(null);
 
   const handleBirthdayChange = (dateVal: string) => {
@@ -109,6 +121,7 @@ export const JoinPage: React.FC = () => {
       : `Brgy. ${barangay}, Guimba, Nueva Ecija`;
 
     try {
+      const chosenPassword = portalPassword.trim() || generateTemporaryPassword();
       const res = await registerMemberRequest(
         trimmedEmail,
         trimmedName,
@@ -117,7 +130,9 @@ export const JoinPage: React.FC = () => {
         {
           age: parsedAge,
           address: fullAddress,
-          birthdate: birthday
+          birthdate: birthday,
+          password: chosenPassword,
+          directActive: true
         }
       );
 
@@ -134,6 +149,7 @@ export const JoinPage: React.FC = () => {
           barangay: res.member.barangay,
           username: res.member.username || res.member.email,
           membershipStatus: res.member.membershipStatus,
+          password: chosenPassword,
           isExisting: false
         });
         try {
@@ -152,6 +168,7 @@ export const JoinPage: React.FC = () => {
           barangay: res.member.barangay,
           username: res.member.username || res.member.email,
           membershipStatus: res.member.membershipStatus,
+          password: chosenPassword,
           isExisting: true
         });
       } else {
@@ -190,24 +207,12 @@ export const JoinPage: React.FC = () => {
             <div className="space-y-4 text-xs">
               <div className="flex items-start gap-3">
                 <div className="p-2 bg-blue-600/30 text-yellow-300 rounded-xl flex-shrink-0">
-                  <Mail className="w-5 h-5" />
+                  <UserCheck className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-sm text-white">1. Enter Your Gmail</h4>
+                  <h4 className="font-bold text-sm text-white">1. Direct Directory Registration</h4>
                   <p className="text-slate-300 mt-0.5 leading-relaxed">
-                    No need to create a password right now. Simply provide your active Gmail address to register.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <div className="p-2 bg-blue-600/30 text-yellow-300 rounded-xl flex-shrink-0">
-                  <ShieldCheck className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-sm text-white">2. Administrator Credential Assignment</h4>
-                  <p className="text-slate-300 mt-0.5 leading-relaxed">
-                    An organization administrator will verify your record, assign an official username, and generate temporary login credentials.
+                    Provide your official youth member details. Your record is saved directly to the PAGASA Member Directory with active status.
                   </p>
                 </div>
               </div>
@@ -217,9 +222,21 @@ export const JoinPage: React.FC = () => {
                   <KeyRound className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-sm text-white">3. Automated Email Delivery</h4>
+                  <h4 className="font-bold text-sm text-white">2. Set or Auto-Generate Credentials</h4>
                   <p className="text-slate-300 mt-0.5 leading-relaxed">
-                    You will receive an official branded credentials email containing your Username, Temporary Password, and direct login instructions.
+                    Your login credentials (Username/Gmail and SHA-256 hashed password) are saved directly for immediate access.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="p-2 bg-blue-600/30 text-yellow-300 rounded-xl flex-shrink-0">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-sm text-white">3. Admin & Directory Synchronization</h4>
+                  <p className="text-slate-300 mt-0.5 leading-relaxed">
+                    Administrators can instantly view, verify, or sync all direct join submissions within the central Admin Member Directory.
                   </p>
                 </div>
               </div>
@@ -229,9 +246,9 @@ export const JoinPage: React.FC = () => {
                   <QrCode className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-sm text-white">4. Member Portal & QR Attendance</h4>
+                  <h4 className="font-bold text-sm text-white">4. Instant Member Portal Access</h4>
                   <p className="text-slate-300 mt-0.5 leading-relaxed">
-                    Log in to unlock your personal Digital QR ID, register for municipal summits, and download official certificates.
+                    Instantly proceed to your personal Member Portal, view your verified QR ID pass, and register for Guimba youth summits.
                   </p>
                 </div>
               </div>
@@ -535,17 +552,75 @@ export const JoinPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="p-3.5 bg-sky-50 border border-sky-100 rounded-2xl flex items-start gap-2.5 text-xs text-sky-900 leading-relaxed">
-                  <Info className="w-4 h-4 text-sky-600 flex-shrink-0 mt-0.5" />
+                {/* 5. Portal Password / User Credentials */}
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <Lock className="w-4 h-4 text-blue-600" />
+                      <label className="text-xs font-bold text-slate-800">
+                        Portal Password / Login Credentials <span className="text-red-500">*</span>
+                      </label>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setPortalPassword(generateTemporaryPassword())}
+                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-700 transition-colors cursor-pointer"
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                      <span>Generate New</span>
+                    </button>
+                  </div>
+
+                  <div className="relative">
+                    <KeyRound className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type={showPortalPassword ? 'text' : 'password'}
+                      required
+                      value={portalPassword}
+                      onChange={(e) => setPortalPassword(e.target.value)}
+                      placeholder="Enter your chosen password"
+                      className="w-full pl-10 pr-20 py-2.5 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all"
+                    />
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setShowPortalPassword(!showPortalPassword)}
+                        className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg transition-colors cursor-pointer"
+                        title={showPortalPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showPortalPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(portalPassword);
+                          setCopiedPassword(true);
+                          setTimeout(() => setCopiedPassword(false), 2000);
+                        }}
+                        className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg transition-colors cursor-pointer"
+                        title="Copy password"
+                      >
+                        {copiedPassword ? <CheckCheck className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[11px] text-slate-500">
+                    <span>Direct Entry: Inputs & credentials are recorded directly into the Member Directory.</span>
+                  </div>
+                </div>
+
+                <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-start gap-2.5 text-xs text-emerald-900 leading-relaxed">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
                   <span>
-                    Upon clicking submit, your member record will be submitted to the administration. The administrator will assign your official <strong>Username</strong> and <strong>Account Password</strong>, which will be emailed to your Gmail. No temporary password needed.
+                    <strong>Direct Directory Sync:</strong> Submitting this form registers your inputs and credentials directly to the PAGASA Member Directory with active portal status.
                   </span>
                 </div>
 
                 {/* Submit Member Registration Button */}
                 <button
                   type="submit"
-                  disabled={isSubmitting || !email.trim() || !fullName.trim()}
+                  disabled={isSubmitting || !email.trim() || !fullName.trim() || !portalPassword.trim()}
                   className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-xs sm:text-sm font-bold shadow-lg shadow-blue-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? (
@@ -584,6 +659,12 @@ export const JoinPage: React.FC = () => {
       <RegistrationSuccessModal
         isOpen={successModalOpen}
         memberId={registeredMemberRecord?.memberId || submittedData?.memberId || 'PAGASA-2026-0001'}
+        credentials={{
+          fullName: registeredMemberRecord?.fullName || submittedData?.fullName,
+          email: registeredMemberRecord?.email || submittedData?.email,
+          username: registeredMemberRecord?.username || submittedData?.username || registeredMemberRecord?.email || submittedData?.email,
+          password: submittedData?.password || portalPassword
+        }}
         onClose={() => setSuccessModalOpen(false)}
         onProceed={() => {
           setSuccessModalOpen(false);

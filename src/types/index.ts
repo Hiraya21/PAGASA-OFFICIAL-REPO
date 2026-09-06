@@ -79,6 +79,7 @@ export interface Member {
   passwordHash?: string;
   credentialStatus?: CredentialStatus;
   credentialsAssignedAt?: string;
+  registrationSource?: 'JOIN_FORM' | 'ADMIN_MANUAL' | 'GOOGLE_AUTH';
   emailDeliveryStatus?: 'Delivered' | 'Pending' | 'Failed';
   emailDeliveryError?: string;
   emailDeliveryDate?: string;

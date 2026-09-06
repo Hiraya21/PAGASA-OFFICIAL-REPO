@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Check, X } from 'lucide-react';
+import { Check, X, Copy, CheckCheck, Eye, EyeOff, KeyRound, Mail, UserCheck } from 'lucide-react';
 import { PagasaLogo } from './PagasaLogo';
 
 interface RegistrationSuccessModalProps {
@@ -8,15 +8,32 @@ interface RegistrationSuccessModalProps {
   onClose: () => void;
   onProceed: () => void;
   memberId: string;
+  credentials?: {
+    fullName?: string;
+    email?: string;
+    username?: string;
+    password?: string;
+  };
 }
 
 export const RegistrationSuccessModal: React.FC<RegistrationSuccessModalProps> = ({
   isOpen,
   onClose,
   onProceed,
-  memberId
+  memberId,
+  credentials
 }) => {
+  const [showPassword, setShowPassword] = useState(false);
+  const [copied, setCopied] = useState(false);
+
   if (!isOpen) return null;
+
+  const handleCopyCredentials = () => {
+    const text = `PAGASA Member Credentials\nMember ID: ${memberId}\nName: ${credentials?.fullName || ''}\nEmail / Username: ${credentials?.username || credentials?.email || ''}\nPassword: ${credentials?.password || ''}`;
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  };
 
   return (
     <AnimatePresence>
@@ -82,13 +99,61 @@ export const RegistrationSuccessModal: React.FC<RegistrationSuccessModalProps> =
               </span>
             </div>
 
+            {/* Credentials Card if available */}
+            {credentials?.password && (
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl text-left space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                    <KeyRound className="w-4 h-4 text-blue-600" />
+                    <span>Your Member Login Credentials</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCopyCredentials}
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                  >
+                    {copied ? <CheckCheck className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copied ? 'Copied!' : 'Copy Credentials'}</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  <div className="p-2.5 bg-white rounded-xl border border-slate-200">
+                    <span className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider">Username / Email</span>
+                    <span className="font-mono font-bold text-slate-900 truncate block mt-0.5">
+                      {credentials.username || credentials.email}
+                    </span>
+                  </div>
+                  <div className="p-2.5 bg-white rounded-xl border border-slate-200 flex items-center justify-between">
+                    <div>
+                      <span className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider">Portal Password</span>
+                      <span className="font-mono font-bold text-slate-900 block mt-0.5">
+                        {showPassword ? credentials.password : '••••••••••••'}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="p-1 text-slate-400 hover:text-slate-600 rounded transition-colors"
+                      title={showPassword ? "Hide password" : "Show password"}
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Green Callout Card */}
             <div className="p-4 bg-emerald-50/70 border border-emerald-200/90 rounded-2xl text-left space-y-1">
-              <h4 className="text-xs font-bold text-emerald-950">
-                Gmail Portal Access Enabled
-              </h4>
+              <div className="flex items-center gap-1.5">
+                <UserCheck className="w-4 h-4 text-emerald-600" />
+                <h4 className="text-xs font-bold text-emerald-950">
+                  Recorded Direct to Member Directory
+                </h4>
+              </div>
               <p className="text-xs text-emerald-800 leading-relaxed">
-                You can now sign in using your registered Gmail address or 1-click Google OAuth.
+                Your profile and credentials are now registered in the official PAGASA Member Directory with active portal access.
               </p>
             </div>
 

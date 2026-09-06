@@ -45,7 +45,7 @@ service cloud.firestore {
              data.fullName is string && data.fullName.size() <= 200 &&
              data.email is string && data.email.size() <= 200 &&
              data.barangay is string && data.barangay.size() <= 100 &&
-             data.membershipStatus in ['Active', 'Pending', 'Inactive', 'Suspended'];
+             data.membershipStatus in ['Active', 'Pending', 'Inactive', 'Suspended', 'Rejected'];
     }
 
     function isValidEvent(data) {

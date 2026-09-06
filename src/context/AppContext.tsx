@@ -43,7 +43,9 @@ import {
 import {
   signInWithGoogle as firebaseGoogleSignIn,
   signOutFirebase,
-  subscribeToAuth
+  subscribeToAuth,
+  saveMemberDoc,
+  getMembersFromFirestore
 } from '../firebase/firestoreService';
 import { ConfirmModal, ConfirmModalConfig } from '../components/common/ConfirmModal';
 import { EmailPreviewModal } from '../components/common/EmailPreviewModal';
@@ -175,8 +177,14 @@ interface AppContextType {
       age?: number;
       address?: string;
       birthdate?: string;
+      gender?: 'Male' | 'Female' | 'Prefer not to say' | 'Other';
+      educationalStatus?: any;
+      occupation?: string;
+      password?: string;
+      directActive?: boolean;
     }
-  ) => Promise<{ success: boolean; member: Member; message: string; isExisting?: boolean }>;
+  ) => Promise<{ success: boolean; member: Member; message: string; isExisting?: boolean; credentials?: { username: string; password?: string } }>;
+  fetchJoinRegistrationsDirect: () => Promise<{ total: number; joinFormCount: number; message: string }>;
   assignMemberCredentials: (memberId: string, username: string, temporaryPassword: string, sendEmailImmediately?: boolean, requirePasswordChange?: boolean) => Promise<{ success: boolean; emailSent: boolean; error?: string }>;
   setMemberPassword: (memberId: string, passwordInput: string, requirePasswordChange?: boolean, sendEmailImmediately?: boolean) => Promise<{ success: boolean; emailSent: boolean; error?: string }>;
   resetMemberPasswordByAdmin: (memberId: string, sendEmailImmediately?: boolean) => Promise<{ success: boolean; temporaryPassword: string; emailSent: boolean; error?: string }>;
@@ -873,8 +881,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       age?: number;
       address?: string;
       birthdate?: string;
+      gender?: 'Male' | 'Female' | 'Prefer not to say' | 'Other';
+      educationalStatus?: any;
+      occupation?: string;
+      password?: string;
+      directActive?: boolean;
     }
-  ): Promise<{ success: boolean; member: Member; message: string; isExisting?: boolean }> => {
+  ): Promise<{ success: boolean; member: Member; message: string; isExisting?: boolean; credentials?: { username: string; password?: string } }> => {
     const trimmedEmail = email.trim().toLowerCase();
     const resolvedName = fullName?.trim() || formatNameFromEmail(trimmedEmail);
     const resolvedAge = extraDetails?.age && !isNaN(Number(extraDetails.age)) ? Number(extraDetails.age) : 21;
@@ -882,6 +895,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const resolvedAddress = extraDetails?.address?.trim()
       ? (extraDetails.address.includes('Guimba') ? extraDetails.address : `${extraDetails.address}, Brgy. ${barangay || 'Saint John District (Poblacion)'}, Guimba, Nueva Ecija`)
       : `Brgy. ${barangay || 'Saint John District (Poblacion)'}, Guimba, Nueva Ecija`;
+
+    const rawPassword = extraDetails?.password?.trim() || 'Pagasa@2026';
+    const passwordHash = await hashPassword(rawPassword);
+    const resolvedUsername = trimmedEmail;
 
     // Check if already registered - prevent duplicate accounts with the same Gmail address
     const existingIndex = members.findIndex(m => (m.email || '').toLowerCase().trim() === trimmedEmail);
@@ -894,21 +911,44 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         birthdate: extraDetails?.birthdate || existing.birthdate,
         address: extraDetails?.address ? resolvedAddress : existing.address,
         barangay: barangay || existing.barangay,
-        contactNumber: contactNumber?.trim() || existing.contactNumber
+        contactNumber: contactNumber?.trim() || existing.contactNumber,
+        gender: extraDetails?.gender || existing.gender || 'Male',
+        educationalStatus: extraDetails?.educationalStatus || existing.educationalStatus || 'College / University',
+        portalPassword: rawPassword,
+        passwordHash,
+        credentialStatus: 'Active & Configured',
+        portalAccess: 'Enabled',
+        membershipStatus: 'Active',
+        isAccessDisabled: false,
+        registrationSource: existing.registrationSource || 'JOIN_FORM'
       };
       const updatedList = [...members];
       updatedList[existingIndex] = updatedExisting;
       setMembers(updatedList);
       storageService.saveMembers(updatedList);
+      saveMemberDoc(updatedExisting).catch(err => console.warn('Firestore member sync warning:', err));
 
-      const isPending = existing.membershipStatus === 'Pending' || existing.credentialStatus === 'Pending Credentials';
+      setAuthAccounts(prev => [
+        {
+          id: 'auth-' + updatedExisting.id,
+          memberId: updatedExisting.id,
+          username: resolvedUsername,
+          email: trimmedEmail,
+          passwordHash,
+          accountStatus: 'Active',
+          portalAccess: 'Enabled',
+          mustChangePassword: false,
+          createdAt: new Date().toISOString()
+        },
+        ...prev.filter(a => a.email !== trimmedEmail)
+      ]);
+
       return {
-        success: false,
+        success: true,
         member: updatedExisting,
         isExisting: true,
-        message: isPending 
-          ? `Your Gmail address "${trimmedEmail}" is already registered (Status: Pending Administrator Approval). Member ID: ${existing.memberId}.`
-          : `An account with Gmail "${trimmedEmail}" already exists. Status: ${existing.membershipStatus}. You can sign in using your Gmail and password.`
+        credentials: { username: resolvedUsername, password: rawPassword },
+        message: `Account with Gmail "${trimmedEmail}" updated with your submitted credentials and active in Member Directory.`
       };
     }
 
@@ -919,27 +959,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       memberId,
       fullName: resolvedName,
       email: trimmedEmail,
-      username: trimmedEmail, // Use member's Gmail address as unique login username
+      username: resolvedUsername, // Use member's Gmail address as unique login username
       contactNumber: contactNumber?.trim() || '+63 917 000 0000',
       birthdate: resolvedBirthdate,
       age: resolvedAge,
-      gender: 'Male',
+      gender: extraDetails?.gender || 'Male',
       address: resolvedAddress,
       barangay: barangay || 'Saint John District (Poblacion)',
-      educationalStatus: 'College / University',
-      occupation: 'Youth Volunteer',
+      educationalStatus: extraDetails?.educationalStatus || 'College / University',
+      occupation: extraDetails?.occupation || 'Youth Volunteer',
       profilePicture: `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(resolvedName)}`,
-      membershipStatus: 'Pending', // Account status is Pending until Administrator approves
-      portalAccess: 'Disabled',    // Portal access is Disabled until approved
+      membershipStatus: extraDetails?.directActive === false ? 'Pending' : 'Active', // Direct active status in directory
+      portalAccess: extraDetails?.directActive === false ? 'Disabled' : 'Enabled',    // Direct portal access enabled
       membershipDate: new Date().toISOString().split('T')[0],
+      dateJoined: new Date().toISOString().split('T')[0],
       organizationPosition: 'Youth Member',
       committee: 'General Youth Volunteer',
       qrCode: `PAGASA:MEMBER:${memberId}:${resolvedName}`,
       registeredEventIds: [],
-      credentialStatus: 'Pending Credentials',
+      credentialStatus: 'Active',
+      portalPassword: rawPassword, // Plaintext stored for administrative copy/review in Member Directory
+      passwordHash,
       mustChangePassword: false,
-      isAccessDisabled: true,
-      gmailAccessEnabled: false,
+      isAccessDisabled: false,
+      gmailAccessEnabled: true,
+      registrationSource: 'JOIN_FORM',
       emergencyContact: {
         name: 'Family Contact',
         relationship: 'Parent / Guardian',
@@ -958,16 +1002,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const updatedList = [newMember, ...members];
     setMembers(updatedList);
     storageService.saveMembers(updatedList);
+    saveMemberDoc(newMember).catch(err => console.warn('Firestore member sync warning:', err));
 
-    // Also record linked AuthAccount
+    // Record linked AuthAccount for instant authentication
     const newAuthAccount: AuthAccount = {
       id: 'auth-' + newMember.id,
       memberId: newMember.id,
-      username: trimmedEmail,
+      username: resolvedUsername,
       email: trimmedEmail,
-      passwordHash: '',
-      accountStatus: 'Pending',
-      portalAccess: 'Disabled',
+      passwordHash,
+      accountStatus: 'Active',
+      portalAccess: 'Enabled',
       mustChangePassword: false,
       createdAt: new Date().toISOString()
     };
@@ -975,28 +1020,69 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Audit Log & Notification for Administrator
     logAuditEvent(
-      'New Member Application Submitted',
+      'New Member Direct Registration',
       'Members',
-      `New member application registered with Gmail: ${trimmedEmail} (${resolvedName}). Status set to "Pending" awaiting administrator review.`
+      `New member registered via Join Form: ${resolvedName} (${trimmedEmail}). All inputs and credentials saved directly to Member Directory. Status: Active.`
     );
 
     addNotification(
-      'New Membership Application Pending',
-      `${resolvedName} (${trimmedEmail}) applied to join PAGASA. Please review, approve portal access, and set credentials in the Member Directory.`,
+      'New Member Registered via Join Form',
+      `${resolvedName} (${trimmedEmail}) joined PAGASA. Member inputs and credentials saved directly to the Member Directory with active portal access.`,
       'system'
     );
 
     showToast(
-      'info',
-      'Application Submitted',
-      `Welcome ${resolvedName}! Your application has been recorded with status "Pending". An administrator will review your application and assign your login credentials.`
+      'success',
+      'Registered to Member Directory',
+      `Welcome, ${resolvedName}! Your inputs and credentials have been recorded directly in the Member Directory.`
     );
 
     return {
       success: true,
       member: newMember,
       isExisting: false,
-      message: 'Your registration application has been submitted and is pending administrator approval.'
+      credentials: { username: resolvedUsername, password: rawPassword },
+      message: 'Your registration and credentials have been registered directly into the Member Directory.'
+    };
+  };
+
+  const fetchJoinRegistrationsDirect = async (): Promise<{ total: number; joinFormCount: number; message: string }> => {
+    const localMembers = storageService.loadMembers();
+    let cloudMembers: Member[] = [];
+    try {
+      cloudMembers = await getMembersFromFirestore();
+    } catch (err) {
+      console.warn('Firestore members fetch fallback to local:', err);
+    }
+
+    const mergedMap = new Map<string, Member>();
+    // Pre-populate with current state
+    members.forEach(m => mergedMap.set(m.id, m));
+    // Overlay local members
+    localMembers.forEach(m => mergedMap.set(m.id, { ...(mergedMap.get(m.id) || {}), ...m }));
+    // Overlay cloud members
+    cloudMembers.forEach(m => mergedMap.set(m.id, { ...(mergedMap.get(m.id) || {}), ...m }));
+
+    const mergedList = Array.from(mergedMap.values());
+    mergedList.sort((a, b) => {
+      if (a.registrationSource === 'JOIN_FORM' && b.registrationSource !== 'JOIN_FORM') return -1;
+      if (b.registrationSource === 'JOIN_FORM' && a.registrationSource !== 'JOIN_FORM') return 1;
+      return (b.membershipDate || '').localeCompare(a.membershipDate || '');
+    });
+
+    setMembers(mergedList);
+    storageService.saveMembers(mergedList);
+
+    const joinFormCount = mergedList.filter(m => m.registrationSource === 'JOIN_FORM').length;
+    const msg = `Synced ${mergedList.length} members (${joinFormCount} direct join submissions) into Directory.`;
+    
+    logAuditEvent('Fetched Join Registrations', 'Members', msg);
+    showToast('success', 'Directory Synchronized', msg);
+
+    return {
+      total: mergedList.length,
+      joinFormCount,
+      message: msg
     };
   };
 
@@ -2495,6 +2581,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteMember,
         clearAllMembers,
         registerMemberRequest,
+        fetchJoinRegistrationsDirect,
         assignMemberCredentials,
         setMemberPassword,
         resetMemberPasswordByAdmin,
