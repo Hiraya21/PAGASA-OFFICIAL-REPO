@@ -1,0 +1,10 @@
+{
+  "name": "PAGASA_GUIMBA OFFICIAL WEB",
+  "description": "Comprehensive Management Information System \u0026 Public Portal for PAGASA Guimba Youth Organization featuring member management, QR attendance tracking, events, projects, certificates, announcements, and reporting.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

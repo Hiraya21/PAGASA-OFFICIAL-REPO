@@ -1,0 +1,324 @@
+{
+  "entities": {
+    "OrganizationSettings": {
+      "title": "OrganizationSettings",
+      "description": "Global organization configuration and contact details for Pagasa Guimba Youth MIS",
+      "type": "object",
+      "properties": {
+        "orgName": { "type": "string", "maxLength": 200 },
+        "acronym": { "type": "string", "maxLength": 50 },
+        "tagline": { "type": "string", "maxLength": 300 },
+        "subTagline": { "type": "string", "maxLength": 300 },
+        "logoUrl": { "type": "string", "maxLength": 1000 },
+        "address": { "type": "string", "maxLength": 500 },
+        "municipalHall": { "type": "string", "maxLength": 200 },
+        "email": { "type": "string", "maxLength": 200 },
+        "phone": { "type": "string", "maxLength": 50 },
+        "contactNumber": { "type": "string", "maxLength": 50 },
+        "facebookUrl": { "type": "string", "maxLength": 500 },
+        "instagramUrl": { "type": "string", "maxLength": 500 },
+        "youtubeUrl": { "type": "string", "maxLength": 500 },
+        "registrationAutoApproval": { "type": "boolean" },
+        "qrExpiryMinutes": { "type": "number" },
+        "lateGracePeriodMinutes": { "type": "number" },
+        "allowPublicEventRegistration": { "type": "boolean" },
+        "defaultTheme": { "type": "string", "enum": ["light", "dark", "system"] },
+        "defaultPalette": { "type": "string", "enum": ["default", "emerald", "purple", "sunset", "ocean", "high-contrast"] }
+      },
+      "required": ["orgName", "address", "email"]
+    },
+    "Member": {
+      "title": "Member",
+      "description": "Pagasa youth member profile and civic engagement records",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "memberId": { "type": "string", "maxLength": 64 },
+        "fullName": { "type": "string", "maxLength": 200 },
+        "email": { "type": "string", "maxLength": 200 },
+        "contactNumber": { "type": "string", "maxLength": 50 },
+        "birthdate": { "type": "string", "maxLength": 50 },
+        "age": { "type": "number" },
+        "gender": { "type": "string", "enum": ["Male", "Female", "Prefer not to say", "Other"] },
+        "address": { "type": "string", "maxLength": 500 },
+        "barangay": { "type": "string", "maxLength": 100 },
+        "educationalStatus": { "type": "string", "maxLength": 100 },
+        "occupation": { "type": "string", "maxLength": 100 },
+        "profilePicture": { "type": "string", "maxLength": 1000 },
+        "membershipDate": { "type": "string", "maxLength": 50 },
+        "membershipStatus": { "type": "string", "enum": ["Active", "Pending", "Inactive", "Suspended"] },
+        "organizationPosition": { "type": "string", "maxLength": 100 },
+        "committee": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["id", "memberId", "fullName", "email", "barangay", "membershipStatus"]
+    },
+    "Event": {
+      "title": "Event",
+      "description": "Youth summit, workshop, or community project event",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 300 },
+        "category": { "type": "string", "maxLength": 100 },
+        "bannerImage": { "type": "string", "maxLength": 1000 },
+        "date": { "type": "string", "maxLength": 50 },
+        "time": { "type": "string", "maxLength": 50 },
+        "location": { "type": "string", "maxLength": 300 },
+        "venue": { "type": "string", "maxLength": 300 },
+        "organizer": { "type": "string", "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 5000 },
+        "maxParticipants": { "type": "number" },
+        "currentParticipants": { "type": "number" },
+        "status": { "type": "string", "enum": ["Upcoming", "Ongoing", "Completed", "Cancelled"] },
+        "isPublished": { "type": "boolean" },
+        "qrCodeSecret": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["id", "title", "category", "date", "location", "status"]
+    },
+    "EventRegistration": {
+      "title": "EventRegistration",
+      "description": "Registration for an event by a member or participant",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "eventId": { "type": "string", "maxLength": 128 },
+        "memberId": { "type": "string", "maxLength": 64 },
+        "memberName": { "type": "string", "maxLength": 200 },
+        "memberEmail": { "type": "string", "maxLength": 200 },
+        "registeredAt": { "type": "string", "maxLength": 50 },
+        "status": { "type": "string", "enum": ["Registered", "Cancelled", "Attended"] },
+        "notes": { "type": "string", "maxLength": 1000 }
+      },
+      "required": ["id", "eventId", "memberId", "memberName", "memberEmail", "status"]
+    },
+    "AttendanceSession": {
+      "title": "AttendanceSession",
+      "description": "Active or past QR attendance verification session",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "eventId": { "type": "string", "maxLength": 128 },
+        "eventTitle": { "type": "string", "maxLength": 300 },
+        "date": { "type": "string", "maxLength": 50 },
+        "startTime": { "type": "string", "maxLength": 50 },
+        "endTime": { "type": "string", "maxLength": 50 },
+        "location": { "type": "string", "maxLength": 300 },
+        "isOpen": { "type": "boolean" },
+        "qrCodeValue": { "type": "string", "maxLength": 500 }
+      },
+      "required": ["id", "eventId", "eventTitle", "date", "isOpen"]
+    },
+    "AttendanceRecord": {
+      "title": "AttendanceRecord",
+      "description": "Verified check-in record for an attendee",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "sessionId": { "type": "string", "maxLength": 128 },
+        "eventId": { "type": "string", "maxLength": 128 },
+        "eventTitle": { "type": "string", "maxLength": 300 },
+        "memberId": { "type": "string", "maxLength": 64 },
+        "memberName": { "type": "string", "maxLength": 200 },
+        "memberBarangay": { "type": "string", "maxLength": 100 },
+        "checkInTime": { "type": "string", "maxLength": 50 },
+        "date": { "type": "string", "maxLength": 50 },
+        "status": { "type": "string", "enum": ["Present", "Late", "Absent", "Excused"] },
+        "method": { "type": "string", "enum": ["QR_SCAN", "MANUAL", "SEARCH"] },
+        "recordedBy": { "type": "string", "maxLength": 200 }
+      },
+      "required": ["id", "sessionId", "eventId", "memberId", "memberName", "status", "method"]
+    },
+    "Project": {
+      "title": "Project",
+      "description": "Community development, environmental, and youth empowerment projects",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 300 },
+        "category": { "type": "string", "maxLength": 100 },
+        "image": { "type": "string", "maxLength": 1000 },
+        "description": { "type": "string", "maxLength": 5000 },
+        "startDate": { "type": "string", "maxLength": 50 },
+        "endDate": { "type": "string", "maxLength": 50 },
+        "projectLeader": { "type": "string", "maxLength": 200 },
+        "status": { "type": "string", "enum": ["Planning", "Ongoing", "Completed", "Cancelled"] },
+        "participantsCount": { "type": "number" },
+        "progress": { "type": "number" }
+      },
+      "required": ["id", "title", "category", "description", "status"]
+    },
+    "Activity": {
+      "title": "Activity",
+      "description": "Workshops, training sessions, and sports activities",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 300 },
+        "category": { "type": "string", "enum": ["Seminars", "Workshops", "Sports", "Outreach", "Volunteer", "Meetings", "Training"] },
+        "date": { "type": "string", "maxLength": 50 },
+        "time": { "type": "string", "maxLength": 50 },
+        "location": { "type": "string", "maxLength": 300 },
+        "leader": { "type": "string", "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 3000 },
+        "targetParticipants": { "type": "number" },
+        "status": { "type": "string", "enum": ["Upcoming", "Completed", "Ongoing"] },
+        "attendanceTracked": { "type": "boolean" }
+      },
+      "required": ["id", "title", "category", "date", "status"]
+    },
+    "Announcement": {
+      "title": "Announcement",
+      "description": "Public advisories, opportunities, and emergency bulletins",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 300 },
+        "category": { "type": "string", "maxLength": 100 },
+        "date": { "type": "string", "maxLength": 50 },
+        "author": { "type": "string", "maxLength": 200 },
+        "authorRole": { "type": "string", "maxLength": 100 },
+        "featuredImage": { "type": "string", "maxLength": 1000 },
+        "summary": { "type": "string", "maxLength": 1000 },
+        "content": { "type": "string", "maxLength": 10000 },
+        "isPublished": { "type": "boolean" },
+        "isPinned": { "type": "boolean" },
+        "views": { "type": "number" }
+      },
+      "required": ["id", "title", "category", "date", "author", "content"]
+    },
+    "Official": {
+      "title": "Official",
+      "description": "Pagasa Guimba Youth Federation executive officers and committee chairs",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "fullName": { "type": "string", "maxLength": 200 },
+        "position": { "type": "string", "maxLength": 200 },
+        "committee": { "type": "string", "maxLength": 200 },
+        "profilePicture": { "type": "string", "maxLength": 1000 },
+        "bio": { "type": "string", "maxLength": 3000 },
+        "term": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["id", "fullName", "position", "term"]
+    },
+    "Certificate": {
+      "title": "Certificate",
+      "description": "Digitally verifiable e-certificate of recognition and participation",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "certificateNumber": { "type": "string", "maxLength": 100 },
+        "memberId": { "type": "string", "maxLength": 64 },
+        "memberName": { "type": "string", "maxLength": 200 },
+        "eventOrActivityTitle": { "type": "string", "maxLength": 300 },
+        "certificateType": { "type": "string", "enum": ["Leadership", "Participation", "Excellence", "Volunteerism", "Special Recognition"] },
+        "issueDate": { "type": "string", "maxLength": 50 },
+        "organization": { "type": "string", "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "qrVerificationUrl": { "type": "string", "maxLength": 500 }
+      },
+      "required": ["id", "certificateNumber", "memberId", "memberName", "eventOrActivityTitle", "certificateType", "issueDate"]
+    },
+    "GalleryPhoto": {
+      "title": "GalleryPhoto",
+      "description": "Photo archive item for youth activities and events",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 300 },
+        "category": { "type": "string", "maxLength": 100 },
+        "imageUrl": { "type": "string", "maxLength": 1000 },
+        "date": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "title", "imageUrl", "date"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "System or member notification item",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 300 },
+        "message": { "type": "string", "maxLength": 1000 },
+        "type": { "type": "string", "enum": ["event", "attendance", "certificate", "announcement", "system"] },
+        "createdAt": { "type": "string", "maxLength": 50 },
+        "isRead": { "type": "boolean" }
+      },
+      "required": ["id", "title", "message", "type", "createdAt", "isRead"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "System audit trail record for compliance and accountability",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userName": { "type": "string", "maxLength": 200 },
+        "userRole": { "type": "string", "maxLength": 50 },
+        "action": { "type": "string", "maxLength": 200 },
+        "module": { "type": "string", "maxLength": 100 },
+        "details": { "type": "string", "maxLength": 2000 },
+        "timestamp": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "userName", "userRole", "action", "module", "details", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/settings/{settingId}": {
+      "schema": "OrganizationSettings",
+      "description": "Organization level metadata and configurations"
+    },
+    "/members/{memberId}": {
+      "schema": "Member",
+      "description": "Registered Pagasa youth members collection"
+    },
+    "/events/{eventId}": {
+      "schema": "Event",
+      "description": "Events and youth activities"
+    },
+    "/registrations/{registrationId}": {
+      "schema": "EventRegistration",
+      "description": "Event participant registrations"
+    },
+    "/attendanceSessions/{sessionId}": {
+      "schema": "AttendanceSession",
+      "description": "Event check-in and attendance sessions"
+    },
+    "/attendanceRecords/{recordId}": {
+      "schema": "AttendanceRecord",
+      "description": "Attendance scans and verified logs"
+    },
+    "/projects/{projectId}": {
+      "schema": "Project",
+      "description": "Youth community projects and initiatives"
+    },
+    "/activities/{activityId}": {
+      "schema": "Activity",
+      "description": "Upcoming and completed youth activities"
+    },
+    "/announcements/{announcementId}": {
+      "schema": "Announcement",
+      "description": "Official announcements and bulletins"
+    },
+    "/officials/{officialId}": {
+      "schema": "Official",
+      "description": "Youth Federation executive officials directory"
+    },
+    "/certificates/{certificateId}": {
+      "schema": "Certificate",
+      "description": "Digitally issued verifiable certificates"
+    },
+    "/gallery/{photoId}": {
+      "schema": "GalleryPhoto",
+      "description": "Community photo archive"
+    },
+    "/notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "Member notifications"
+    },
+    "/auditLogs/{logId}": {
+      "schema": "AuditLog",
+      "description": "Administrative actions audit log"
+    }
+  }
+}

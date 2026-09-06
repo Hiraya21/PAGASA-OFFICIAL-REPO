@@ -1,0 +1,247 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Default Deny Catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Global Helper Primitives ---
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'giancarlomagat19@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    // --- Entity Validation Helpers ---
+
+    function isValidSettings(data) {
+      return data.orgName is string && data.orgName.size() <= 200 &&
+             data.email is string && data.email.size() <= 200 &&
+             data.address is string && data.address.size() <= 500;
+    }
+
+    function isValidMember(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.memberId is string && data.memberId.size() <= 64 &&
+             data.fullName is string && data.fullName.size() <= 200 &&
+             data.email is string && data.email.size() <= 200 &&
+             data.barangay is string && data.barangay.size() <= 100 &&
+             data.membershipStatus in ['Active', 'Pending', 'Inactive', 'Suspended'];
+    }
+
+    function isValidEvent(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.title is string && data.title.size() <= 300 &&
+             data.category is string && data.category.size() <= 100 &&
+             data.date is string && data.date.size() <= 50 &&
+             data.status in ['Upcoming', 'Ongoing', 'Completed', 'Cancelled'];
+    }
+
+    function isValidRegistration(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.eventId is string && data.eventId.size() <= 128 &&
+             data.memberId is string && data.memberId.size() <= 64 &&
+             data.memberName is string && data.memberName.size() <= 200 &&
+             data.memberEmail is string && data.memberEmail.size() <= 200 &&
+             data.status in ['Registered', 'Cancelled', 'Attended'];
+    }
+
+    function isValidAttendanceSession(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.eventId is string && data.eventId.size() <= 128 &&
+             data.eventTitle is string && data.eventTitle.size() <= 300 &&
+             data.date is string && data.date.size() <= 50 &&
+             data.isOpen is bool;
+    }
+
+    function isValidAttendanceRecord(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.sessionId is string && data.sessionId.size() <= 128 &&
+             data.eventId is string && data.eventId.size() <= 128 &&
+             data.memberId is string && data.memberId.size() <= 64 &&
+             data.memberName is string && data.memberName.size() <= 200 &&
+             data.status in ['Present', 'Late', 'Absent', 'Excused'] &&
+             data.method in ['QR_SCAN', 'MANUAL', 'SEARCH'];
+    }
+
+    function isValidProject(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.title is string && data.title.size() <= 300 &&
+             data.category is string && data.category.size() <= 100 &&
+             data.status in ['Planning', 'Ongoing', 'Completed', 'Cancelled'];
+    }
+
+    function isValidActivity(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.title is string && data.title.size() <= 300 &&
+             data.category in ['Seminars', 'Workshops', 'Sports', 'Outreach', 'Volunteer', 'Meetings', 'Training'] &&
+             data.status in ['Upcoming', 'Completed', 'Ongoing'];
+    }
+
+    function isValidAnnouncement(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.title is string && data.title.size() <= 300 &&
+             data.category is string && data.category.size() <= 100 &&
+             data.author is string && data.author.size() <= 200;
+    }
+
+    function isValidOfficial(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.fullName is string && data.fullName.size() <= 200 &&
+             data.position is string && data.position.size() <= 200 &&
+             data.term is string && data.term.size() <= 100;
+    }
+
+    function isValidCertificate(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.certificateNumber is string && data.certificateNumber.size() <= 100 &&
+             data.memberId is string && data.memberId.size() <= 64 &&
+             data.memberName is string && data.memberName.size() <= 200 &&
+             data.certificateType in ['Leadership', 'Participation', 'Excellence', 'Volunteerism', 'Special Recognition'];
+    }
+
+    function isValidGallery(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.title is string && data.title.size() <= 300 &&
+             data.imageUrl is string && data.imageUrl.size() <= 1000;
+    }
+
+    function isValidNotification(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.title is string && data.title.size() <= 300 &&
+             data.type in ['event', 'attendance', 'certificate', 'announcement', 'system'] &&
+             data.isRead is bool;
+    }
+
+    function isValidAuditLog(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.userName is string && data.userName.size() <= 200 &&
+             data.action is string && data.action.size() <= 200 &&
+             data.module is string && data.module.size() <= 100;
+    }
+
+    // --- Collections ---
+
+    // Organization Settings
+    match /settings/{settingId} {
+      allow read: if isValidId(settingId);
+      allow create, update: if isValidId(settingId) && isValidSettings(incoming());
+      allow delete: if isValidId(settingId) && isAdmin();
+    }
+
+    // Members
+    match /members/{memberId} {
+      allow read: if isValidId(memberId);
+      allow create, update: if isValidId(memberId) && isValidMember(incoming());
+      allow delete: if isValidId(memberId);
+    }
+
+    // Events
+    match /events/{eventId} {
+      allow read: if isValidId(eventId);
+      allow create, update: if isValidId(eventId) && isValidEvent(incoming());
+      allow delete: if isValidId(eventId);
+    }
+
+    // Event Registrations
+    match /registrations/{registrationId} {
+      allow read: if isValidId(registrationId);
+      allow create, update: if isValidId(registrationId) && isValidRegistration(incoming());
+      allow delete: if isValidId(registrationId);
+    }
+
+    // Attendance Sessions
+    match /attendanceSessions/{sessionId} {
+      allow read: if isValidId(sessionId);
+      allow create, update: if isValidId(sessionId) && isValidAttendanceSession(incoming());
+      allow delete: if isValidId(sessionId);
+    }
+
+    // Attendance Records
+    match /attendanceRecords/{recordId} {
+      allow read: if isValidId(recordId);
+      allow create, update: if isValidId(recordId) && isValidAttendanceRecord(incoming());
+      allow delete: if isValidId(recordId);
+    }
+
+    // Projects
+    match /projects/{projectId} {
+      allow read: if isValidId(projectId);
+      allow create, update: if isValidId(projectId) && isValidProject(incoming());
+      allow delete: if isValidId(projectId);
+    }
+
+    // Activities
+    match /activities/{activityId} {
+      allow read: if isValidId(activityId);
+      allow create, update: if isValidId(activityId) && isValidActivity(incoming());
+      allow delete: if isValidId(activityId);
+    }
+
+    // Announcements
+    match /announcements/{announcementId} {
+      allow read: if isValidId(announcementId);
+      allow create, update: if isValidId(announcementId) && isValidAnnouncement(incoming());
+      allow delete: if isValidId(announcementId);
+    }
+
+    // Officials
+    match /officials/{officialId} {
+      allow read: if isValidId(officialId);
+      allow create, update: if isValidId(officialId) && isValidOfficial(incoming());
+      allow delete: if isValidId(officialId);
+    }
+
+    // Certificates
+    match /certificates/{certificateId} {
+      allow read: if isValidId(certificateId);
+      allow create, update: if isValidId(certificateId) && isValidCertificate(incoming());
+      allow delete: if isValidId(certificateId);
+    }
+
+    // Gallery
+    match /gallery/{photoId} {
+      allow read: if isValidId(photoId);
+      allow create, update: if isValidId(photoId) && isValidGallery(incoming());
+      allow delete: if isValidId(photoId);
+    }
+
+    // Notifications
+    match /notifications/{notificationId} {
+      allow read: if isValidId(notificationId);
+      allow create, update: if isValidId(notificationId) && isValidNotification(incoming());
+      allow delete: if isValidId(notificationId);
+    }
+
+    // Audit Logs (Append-Only)
+    match /auditLogs/{logId} {
+      allow read: if isValidId(logId);
+      allow create: if isValidId(logId) && isValidAuditLog(incoming());
+      allow update, delete: if false; // Append-only audit integrity
+    }
+
+    // Test connection document
+    match /test/{docId} {
+      allow read, write: if true;
+    }
+  }
+}
